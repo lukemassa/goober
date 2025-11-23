@@ -2,6 +2,8 @@ package goober
 
 import (
 	"fmt"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,4 +55,20 @@ func TestGenerateOneLine(t *testing.T) {
 			assert.Equal(t, tt.expectedOutput, actualOutput)
 		})
 	}
+}
+
+func TestPartialWriter(t *testing.T) {
+
+	r, w := io.Pipe()
+	go func() {
+		w.Write([]byte("AAAAAAAA"))
+		w.Write([]byte("AAAAAAAA"))
+		w.Close()
+	}()
+	res := &strings.Builder{}
+
+	err := Hexdump(r, res)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "00000000  41 41 41 41 41 41 41 41  41 41 41 41 41 41 41 41  |AAAAAAAAAAAAAAAA|\n", res.String())
 }

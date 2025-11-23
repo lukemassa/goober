@@ -32,9 +32,12 @@ func Hexdump(in io.Reader, out io.Writer) error {
 		}
 
 		if err == io.EOF {
-			_, err := fmt.Fprintf(out, "%08x\n", offset)
-			if err != nil {
-				return err
+			if offset%16 != 0 {
+				_, err := fmt.Fprintf(out, "%08x\n", offset)
+
+				if err != nil {
+					return err
+				}
 			}
 			return nil
 		}
@@ -52,25 +55,43 @@ func hexEncode(i byte) byte {
 	return (i - 10) + 'a'
 }
 
-func generateOneLine(rawLine []byte) []byte {
-	ret := []byte("                                                  ")
-	summary := []byte("|")
-	offset := 0
-	for i := range len(rawLine) {
-		if rawLine[i] >= 32 && rawLine[i] <= 127 {
-			summary = append(summary, rawLine[i])
+func generateOneLine(raw []byte) []byte {
+	const max = 16
+
+	// Hex section – fixed width, positionally determined:
+	// XX XX XX XX XX XX XX XX  XX XX XX XX XX XX XX XX
+	hexbuf := make([]byte, 0, max*3+2) // +2 for mid-space
+	for i := 0; i < max; i++ {
+		if i < len(raw) {
+			b := raw[i]
+			hexbuf = append(hexbuf, hexEncode(b>>4), hexEncode(b&0x0F))
 		} else {
-			summary = append(summary, '.')
+			hexbuf = append(hexbuf, ' ', ' ')
 		}
-		ret[offset] = hexEncode(rawLine[i] / 16)
-		ret[offset+1] = hexEncode(rawLine[i] % 16)
-		offset += 3
-		if i%8 == 7 {
-			offset += 1
+		if i == 7 {
+			hexbuf = append(hexbuf, ' ', ' ') // double-space after 8 bytes
+		} else {
+			hexbuf = append(hexbuf, ' ')
 		}
 	}
-	summary = append(summary, '|')
-	ret = append(ret, summary...)
-	ret = append(ret, '\n')
-	return ret
+
+	// ASCII section — flexible length, safe to append:
+	asciibuf := make([]byte, 0, len(raw)+2) // +2 for pipes
+	asciibuf = append(asciibuf, '|')
+	for _, b := range raw {
+		if b >= 32 && b <= 126 {
+			asciibuf = append(asciibuf, b)
+		} else {
+			asciibuf = append(asciibuf, '.')
+		}
+	}
+	asciibuf = append(asciibuf, '|')
+
+	// Join them — NO mixing “layout code” with append:
+	line := make([]byte, 0, len(hexbuf)+len(asciibuf)+2)
+	line = append(line, hexbuf...)
+	line = append(line, ' ')
+	line = append(line, asciibuf...)
+	line = append(line, '\n')
+	return line
 }
