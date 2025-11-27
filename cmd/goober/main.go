@@ -12,7 +12,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = goober.Hexdump(f, os.Stdout)
+	err = goober.Hexdump2(f, os.Stdout)
 	if err != nil {
 		log.Fatal(err)
 	}

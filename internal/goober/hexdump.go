@@ -9,9 +9,9 @@ func Hexdump(in io.Reader, out io.Writer) error {
 	const chunkSize = 4096
 	buf := make([]byte, chunkSize)
 	var offset int64
-	fullReader := newFixedReader(in, chunkSize)
+	fixedReader := newFixedReader(in, chunkSize)
 	for {
-		n, err := fullReader.Read(buf)
+		n, err := fixedReader.Read(buf)
 		if n > 0 {
 			for i := 0; i < n; i += 16 {
 				size := 16
@@ -46,6 +46,42 @@ func Hexdump(in io.Reader, out io.Writer) error {
 		}
 
 	}
+}
+
+func Hexdump2(in io.Reader, out io.Writer) error {
+	allBytes, err := io.ReadAll(in)
+	if err != nil {
+		return err
+	}
+	n := len(allBytes)
+	var offset int64
+
+	for i := 0; i < n; i += 16 {
+		size := 16
+		if i+size > n {
+			size = n - i
+		}
+		_, err := fmt.Fprintf(out, "%08x  ", offset)
+		if err != nil {
+			return err
+		}
+		line := generateOneLine(allBytes[i : i+size])
+		_, err = out.Write(line)
+		if err != nil {
+			return err
+		}
+		offset += int64(size)
+	}
+
+	if offset%16 != 0 {
+		_, err := fmt.Fprintf(out, "%08x\n", offset)
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+
 }
 
 func hexEncode(i byte) byte {
